@@ -1,0 +1,116 @@
+{
+  "configVersion": "1.0.0",
+  "lastUpdated": "2026-04-01",
+  "description": "Business rules for Loan Application Approval Workflow. Edit thresholds and operators here — no code changes required.",
+  "rules": [
+    {
+      "ruleId": "REQUIRED_FIELDS",
+      "stage": "input_validation",
+      "description": "All required fields must be present",
+      "type": "schema",
+      "requiredFields": ["applicantName", "loanAmount", "loanPurpose", "applicant.employmentStatus", "applicant.annualIncome", "applicant.dateOfBirth"],
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Application is missing required fields"
+    },
+    {
+      "ruleId": "EMPLOYMENT_STATUS",
+      "stage": "input_validation",
+      "description": "Applicant must be employed or self-employed",
+      "field": "applicant.employmentStatus",
+      "operator": "in",
+      "threshold": ["employed", "self_employed"],
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Applicant must have active employment status"
+    },
+    {
+      "ruleId": "MIN_AGE",
+      "stage": "input_validation",
+      "description": "Applicant must be at least 18 years old",
+      "field": "applicant.ageYears",
+      "operator": "gte",
+      "threshold": 18,
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Applicant must be at least 18 years old"
+    },
+    {
+      "ruleId": "MIN_LOAN_AMOUNT",
+      "stage": "input_validation",
+      "description": "Loan amount must be at least 10,000",
+      "field": "loanAmount",
+      "operator": "gte",
+      "threshold": 10000,
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Loan amount must be at least 10,000"
+    },
+    {
+      "ruleId": "MIN_CREDIT_SCORE",
+      "stage": "credit_check",
+      "description": "Applicant must have minimum credit score of 650",
+      "field": "creditCheckResult.score",
+      "operator": "gte",
+      "threshold": 650,
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Credit score is below the minimum required threshold of 650"
+    },
+    {
+      "ruleId": "NO_ACTIVE_DEFAULTS",
+      "stage": "credit_check",
+      "description": "Applicant must have no active loan defaults",
+      "field": "creditCheckResult.activeDefaults",
+      "operator": "eq",
+      "threshold": 0,
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Applicant has active loan defaults on record"
+    },
+    {
+      "ruleId": "MAX_LOAN_AMOUNT",
+      "stage": "risk_scoring",
+      "description": "Loans above 500,000 require manual review",
+      "field": "loanAmount",
+      "operator": "lte",
+      "threshold": 500000,
+      "severity": "advisory",
+      "failAction": "manual_review",
+      "failMessage": "Loan amount exceeds automated approval threshold — requires manual review"
+    },
+    {
+      "ruleId": "DEBT_TO_INCOME_RATIO",
+      "stage": "risk_scoring",
+      "description": "Debt-to-income ratio must not exceed 0.45",
+      "field": "computed.debtToIncomeRatio",
+      "operator": "lte",
+      "threshold": 0.45,
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Debt-to-income ratio exceeds maximum allowed threshold of 45%"
+    },
+    {
+      "ruleId": "MIN_ANNUAL_INCOME",
+      "stage": "risk_scoring",
+      "description": "Applicant must earn at least 3x the annual loan repayment",
+      "field": "computed.incomeToRepaymentRatio",
+      "operator": "gte",
+      "threshold": 3.0,
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Annual income is insufficient relative to loan repayment obligations"
+    },
+    {
+      "ruleId": "LOAN_PURPOSE_ALLOWED",
+      "stage": "final_decision",
+      "description": "Loan purpose must be in the approved list",
+      "field": "loanPurpose",
+      "operator": "in",
+      "threshold": ["home_purchase", "home_renovation", "education", "medical", "business", "debt_consolidation", "vehicle"],
+      "severity": "mandatory",
+      "failAction": "reject",
+      "failMessage": "Loan purpose is not eligible for this product"
+    }
+  ]
+}
