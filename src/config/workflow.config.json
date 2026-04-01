@@ -1,0 +1,77 @@
+{
+  "workflowId": "LOAN_APPROVAL_V1",
+  "name": "Loan Application Approval Workflow",
+  "description": "End-to-end workflow for evaluating and approving/rejecting loan applications",
+  "version": "1.0.0",
+  "startStage": "input_validation",
+  "terminalStages": ["approved", "rejected", "manual_review"],
+  "stages": [
+    {
+      "id": "input_validation",
+      "name": "Input Validation",
+      "description": "Validates that the request is complete and well-formed",
+      "rulesGroup": "input_validation",
+      "transitions": {
+        "onSuccess": "credit_check",
+        "onFailure": "rejected"
+      }
+    },
+    {
+      "id": "credit_check",
+      "name": "Credit Check",
+      "description": "Fetches credit score from external bureau and evaluates against thresholds",
+      "rulesGroup": "credit_check",
+      "externalDependency": {
+        "service": "CreditCheckService",
+        "timeout_ms": 3000,
+        "maxRetries": 3,
+        "retryStrategy": "exponential_backoff",
+        "onMaxRetriesExceeded": "manual_review"
+      },
+      "transitions": {
+        "onSuccess": "risk_scoring",
+        "onFailure": "rejected",
+        "onDependencyFailure": "manual_review"
+      }
+    },
+    {
+      "id": "risk_scoring",
+      "name": "Risk Scoring",
+      "description": "Evaluates loan amount, debt-to-income ratio, and employment stability",
+      "rulesGroup": "risk_scoring",
+      "transitions": {
+        "onSuccess": "final_decision",
+        "onFailure": "rejected",
+        "onAdvisoryFlag": "manual_review"
+      }
+    },
+    {
+      "id": "final_decision",
+      "name": "Final Decision",
+      "description": "All checks passed — application is approved",
+      "rulesGroup": "final_decision",
+      "transitions": {
+        "onSuccess": "approved",
+        "onFailure": "rejected"
+      }
+    },
+    {
+      "id": "approved",
+      "name": "Approved",
+      "terminal": true,
+      "description": "Application has been approved"
+    },
+    {
+      "id": "rejected",
+      "name": "Rejected",
+      "terminal": true,
+      "description": "Application has been rejected due to rule failure"
+    },
+    {
+      "id": "manual_review",
+      "name": "Manual Review",
+      "terminal": true,
+      "description": "Application requires human agent review — automated decision not possible"
+    }
+  ]
+}
