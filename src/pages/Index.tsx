@@ -22,7 +22,7 @@ const Index = () => {
   useEffect(() => {
     const unsub = executor.subscribe(() => setRequests([...executor.getRequests()]));
     setRequests([...executor.getRequests()]);
-    return unsub;
+    return () => { unsub(); };
   }, []);
 
   const handleSubmit = useCallback(async (data: Record<string, unknown>, idempotencyKey: string) => {
