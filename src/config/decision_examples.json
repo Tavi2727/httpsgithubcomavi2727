@@ -1,0 +1,248 @@
+{
+  "description": "Decision explanation examples showing input, rules triggered, output, and audit reasoning",
+  "configVersion": "1.0.0",
+  "examples": [
+    {
+      "exampleId": "EX-001",
+      "scenario": "Happy Path — Full Approval",
+      "input": {
+        "requestId": "REQ-20260401-001",
+        "idempotencyKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "submittedAt": "2026-04-01T09:15:00Z",
+        "applicantName": "Priya Sharma",
+        "loanAmount": 120000,
+        "loanPurpose": "home_purchase",
+        "applicant": {
+          "employmentStatus": "employed",
+          "annualIncome": 850000,
+          "dateOfBirth": "1990-03-15",
+          "ageYears": 36
+        }
+      },
+      "externalResults": {
+        "creditCheckResult": {
+          "score": 720,
+          "activeDefaults": 0,
+          "fetchedAt": "2026-04-01T09:15:02Z",
+          "attempts": 1
+        }
+      },
+      "computedFields": {
+        "debtToIncomeRatio": 0.18,
+        "incomeToRepaymentRatio": 5.9
+      },
+      "auditTrail": [
+        {
+          "stage": "input_validation",
+          "timestamp": "2026-04-01T09:15:00Z",
+          "rules": [
+            { "ruleId": "REQUIRED_FIELDS", "result": "PASS" },
+            { "ruleId": "EMPLOYMENT_STATUS", "actual": "employed", "threshold": ["employed","self_employed"], "result": "PASS" },
+            { "ruleId": "MIN_AGE", "actual": 36, "threshold": 18, "result": "PASS" },
+            { "ruleId": "MIN_LOAN_AMOUNT", "actual": 120000, "threshold": 10000, "result": "PASS" }
+          ],
+          "stageOutcome": "PASS",
+          "transition": "credit_check"
+        },
+        {
+          "stage": "credit_check",
+          "timestamp": "2026-04-01T09:15:02Z",
+          "externalDependency": { "service": "CreditCheckService", "attempts": 1, "status": "SUCCESS" },
+          "rules": [
+            { "ruleId": "MIN_CREDIT_SCORE", "actual": 720, "threshold": 650, "result": "PASS" },
+            { "ruleId": "NO_ACTIVE_DEFAULTS", "actual": 0, "threshold": 0, "result": "PASS" }
+          ],
+          "stageOutcome": "PASS",
+          "transition": "risk_scoring"
+        },
+        {
+          "stage": "risk_scoring",
+          "timestamp": "2026-04-01T09:15:02Z",
+          "rules": [
+            { "ruleId": "MAX_LOAN_AMOUNT", "actual": 120000, "threshold": 500000, "result": "PASS" },
+            { "ruleId": "DEBT_TO_INCOME_RATIO", "actual": 0.18, "threshold": 0.45, "result": "PASS" },
+            { "ruleId": "MIN_ANNUAL_INCOME", "actual": 5.9, "threshold": 3.0, "result": "PASS" }
+          ],
+          "stageOutcome": "PASS",
+          "transition": "final_decision"
+        },
+        {
+          "stage": "final_decision",
+          "timestamp": "2026-04-01T09:15:03Z",
+          "rules": [
+            { "ruleId": "LOAN_PURPOSE_ALLOWED", "actual": "home_purchase", "threshold": ["home_purchase","..."], "result": "PASS" }
+          ],
+          "stageOutcome": "PASS",
+          "transition": "approved"
+        }
+      ],
+      "finalStatus": "approved",
+      "decisionSummary": "All 10 rules passed across 4 stages. Application approved automatically."
+    },
+    {
+      "exampleId": "EX-002",
+      "scenario": "Rejected — Credit Score Below Threshold",
+      "input": {
+        "requestId": "REQ-20260401-002",
+        "idempotencyKey": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+        "submittedAt": "2026-04-01T10:00:00Z",
+        "applicantName": "Rahul Verma",
+        "loanAmount": 80000,
+        "loanPurpose": "vehicle",
+        "applicant": {
+          "employmentStatus": "employed",
+          "annualIncome": 450000,
+          "dateOfBirth": "1995-07-20",
+          "ageYears": 30
+        }
+      },
+      "externalResults": {
+        "creditCheckResult": {
+          "score": 580,
+          "activeDefaults": 0,
+          "fetchedAt": "2026-04-01T10:00:02Z",
+          "attempts": 1
+        }
+      },
+      "auditTrail": [
+        {
+          "stage": "input_validation",
+          "timestamp": "2026-04-01T10:00:00Z",
+          "rules": [
+            { "ruleId": "REQUIRED_FIELDS", "result": "PASS" },
+            { "ruleId": "EMPLOYMENT_STATUS", "actual": "employed", "result": "PASS" },
+            { "ruleId": "MIN_AGE", "actual": 30, "result": "PASS" },
+            { "ruleId": "MIN_LOAN_AMOUNT", "actual": 80000, "result": "PASS" }
+          ],
+          "stageOutcome": "PASS",
+          "transition": "credit_check"
+        },
+        {
+          "stage": "credit_check",
+          "timestamp": "2026-04-01T10:00:02Z",
+          "rules": [
+            {
+              "ruleId": "MIN_CREDIT_SCORE",
+              "actual": 580,
+              "threshold": 650,
+              "result": "FAIL",
+              "severity": "mandatory",
+              "failAction": "reject",
+              "failMessage": "Credit score is below the minimum required threshold of 650"
+            }
+          ],
+          "stageOutcome": "FAIL",
+          "failingRule": "MIN_CREDIT_SCORE",
+          "transition": "rejected"
+        }
+      ],
+      "finalStatus": "rejected",
+      "decisionSummary": "Rejected at credit_check stage. Rule MIN_CREDIT_SCORE failed: actual score 580 is below mandatory threshold 650."
+    },
+    {
+      "exampleId": "EX-003",
+      "scenario": "Manual Review — External Dependency Failure (Max Retries Exceeded)",
+      "input": {
+        "requestId": "REQ-20260401-003",
+        "idempotencyKey": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+        "submittedAt": "2026-04-01T11:30:00Z",
+        "applicantName": "Anjali Mehta",
+        "loanAmount": 200000,
+        "loanPurpose": "business",
+        "applicant": {
+          "employmentStatus": "self_employed",
+          "annualIncome": 1200000,
+          "ageYears": 42
+        }
+      },
+      "auditTrail": [
+        {
+          "stage": "input_validation",
+          "timestamp": "2026-04-01T11:30:00Z",
+          "stageOutcome": "PASS",
+          "transition": "credit_check"
+        },
+        {
+          "stage": "credit_check",
+          "timestamp": "2026-04-01T11:30:01Z",
+          "externalDependency": {
+            "service": "CreditCheckService",
+            "attempts": [
+              { "attempt": 1, "timestamp": "2026-04-01T11:30:01Z", "status": "TIMEOUT", "waitMs": 3000 },
+              { "attempt": 2, "timestamp": "2026-04-01T11:30:05Z", "status": "TIMEOUT", "waitMs": 3000 },
+              { "attempt": 3, "timestamp": "2026-04-01T11:30:11Z", "status": "TIMEOUT", "waitMs": 3000 }
+            ],
+            "finalStatus": "MAX_RETRIES_EXCEEDED"
+          },
+          "stageOutcome": "DEPENDENCY_FAILURE",
+          "transition": "manual_review"
+        }
+      ],
+      "finalStatus": "manual_review",
+      "decisionSummary": "Automated decision not possible. CreditCheckService timed out on all 3 retry attempts. Application escalated to manual review queue for human agent decision."
+    },
+    {
+      "exampleId": "EX-004",
+      "scenario": "Idempotent Duplicate Request",
+      "input": {
+        "requestId": "REQ-20260401-004",
+        "idempotencyKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "note": "Same idempotency key as EX-001 — this is a duplicate submission"
+      },
+      "auditTrail": [
+        {
+          "stage": "idempotency_check",
+          "timestamp": "2026-04-01T09:18:00Z",
+          "result": "DUPLICATE_DETECTED",
+          "cachedResult": {
+            "originalRequestId": "REQ-20260401-001",
+            "originalTimestamp": "2026-04-01T09:15:00Z",
+            "finalStatus": "approved"
+          },
+          "action": "RETURN_CACHED_RESULT"
+        }
+      ],
+      "finalStatus": "approved",
+      "decisionSummary": "Duplicate request detected via idempotency key. Returned cached result from original submission REQ-20260401-001. No reprocessing occurred."
+    },
+    {
+      "exampleId": "EX-005",
+      "scenario": "Rejected — Invalid Employment Status",
+      "input": {
+        "requestId": "REQ-20260401-005",
+        "idempotencyKey": "e5f6a7b8-c9d0-1234-efab-cd1234567890",
+        "applicantName": "Vikram Singh",
+        "loanAmount": 50000,
+        "loanPurpose": "education",
+        "applicant": {
+          "employmentStatus": "unemployed",
+          "annualIncome": 0,
+          "ageYears": 25
+        }
+      },
+      "auditTrail": [
+        {
+          "stage": "input_validation",
+          "timestamp": "2026-04-01T14:00:00Z",
+          "rules": [
+            { "ruleId": "REQUIRED_FIELDS", "result": "PASS" },
+            {
+              "ruleId": "EMPLOYMENT_STATUS",
+              "actual": "unemployed",
+              "threshold": ["employed", "self_employed"],
+              "result": "FAIL",
+              "severity": "mandatory",
+              "failAction": "reject",
+              "failMessage": "Applicant must have active employment status"
+            }
+          ],
+          "stageOutcome": "FAIL",
+          "failingRule": "EMPLOYMENT_STATUS",
+          "transition": "rejected"
+        }
+      ],
+      "finalStatus": "rejected",
+      "decisionSummary": "Rejected at input_validation stage. Rule EMPLOYMENT_STATUS failed: 'unemployed' is not in the allowed list [employed, self_employed]."
+    }
+  ]
+}
